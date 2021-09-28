@@ -6,8 +6,8 @@
 
 char blynkAuth[] = "bOXpYvGF9jdvCKSCoyoHviOhijrOQQaT";
 
-#define MOTOR_POWER_MIN    50
 #define MOTOR_POWER_MAX    255
+float MOTOR_POWER_MIN  =  50;
 
 //x, y, zの順
 float acc[3];
@@ -66,6 +66,8 @@ float KD = 2.0;
 
 float power=0,I=0,preP=0,preTime,Target=0,Dire;
 
+bool start = false;
+
 
 //TDT_sSprite sprite(&M5.Lcd);
 
@@ -74,7 +76,7 @@ float power=0,I=0,preP=0,preTime,Target=0,Dire;
 void DCmoter(float power){
   if(power > 0){
     power += MOTOR_POWER_MIN;
-    if(power > 255)power = 255;
+    if(power > MOTOR_POWER_MAX)power = 255;
     ledcWrite(PWM_CH1,0);
     ledcWrite(PWM_CH2,power);
     ledcWrite(PWM_CH3,0);
@@ -82,7 +84,7 @@ void DCmoter(float power){
   }else if(power < 0){
     power *= -1;
     power += MOTOR_POWER_MIN;
-    if(power > 255)power = 255;
+    if(power > MOTOR_POWER_MAX)power = 255;
     ledcWrite(PWM_CH1,power);
     ledcWrite(PWM_CH2,0);
     ledcWrite(PWM_CH3,power);
@@ -92,6 +94,11 @@ void DCmoter(float power){
     ledcWrite(PWM_CH2,255);
     ledcWrite(PWM_CH3,255);
     ledcWrite(PWM_CH4,255);      
+  }else if(power == -1){
+    ledcWrite(PWM_CH1,0);
+    ledcWrite(PWM_CH2,0);
+    ledcWrite(PWM_CH3,0);
+    ledcWrite(PWM_CH4,0);     
   }
 }
 
@@ -105,6 +112,10 @@ BLYNK_WRITE(V1){
 
 BLYNK_WRITE(V2){
   KD = param.asInt();
+}
+
+BLYNK_WRITE(V3){
+  MOTOR_POWER_MIN = param.asInt();
 }
 
 void calibration(){
@@ -184,10 +195,10 @@ void setup() {
   pinMode(ENC_IN4, INPUT_PULLUP);
   
   //エンコーダーの割込み設定
-  attachInterrupt(digitalPinToInterrupt(ENC_IN1), ENC_READ1, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ENC_IN2), ENC_READ1, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ENC_IN3), ENC_READ2, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ENC_IN4), ENC_READ2, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(ENC_IN1), ENC_READ1, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(ENC_IN2), ENC_READ1, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(ENC_IN3), ENC_READ2, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(ENC_IN4), ENC_READ2, CHANGE);
 
   M5.Lcd.setTextSize(3);
 
@@ -222,7 +233,11 @@ void loop() {
   m5.Lcd.print("Roll:");
   m5.Lcd.println(roll);
 
-  if(-40 < now && now < 40){
+  if(-1< now && now < 1){
+    power = 0;
+    DCmoter(0);
+  }
+  else if(-30 < now && now < 30 && start){
     P = now/90;
     I += P*dt;
     D = (P - preP)/dt;
@@ -231,23 +246,29 @@ void loop() {
     if(100 < abs(I*KI)){
       I = 0;  
     }
-    power = KP * P + D * KD + KI * I;
+    power = KP * P + KI * I + D * KD;
 
     Duty = (int)(MOTOR_POWER_MAX - MOTOR_POWER_MIN)* power/10; 
     DCmoter(Duty);
   } else {  // +-20度を越えたら倒れたとみなす
     power = 0;
     I = 0;
-    DCmoter(0);
+    DCmoter(-1);
   }
-  m5.Lcd.print("Power:");
+
+  if(m5.BtnA.wasPressed()){
+    if(!start)start = true;
+    else start = false;
+      
+  }
+  /*m5.Lcd.print("Power:");
   m5.Lcd.println(power);
   m5.Lcd.print("KP:");
   m5.Lcd.println(KP);
   m5.Lcd.print("KD:");
   m5.Lcd.println(KD);
   m5.Lcd.print("KI:");
-  m5.Lcd.println(KI);
+  m5.Lcd.println(KI);*/ 
 }
 
 void ENC_READ1() {
