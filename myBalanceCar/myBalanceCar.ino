@@ -3,11 +3,13 @@
 #include<M5Stack.h>
 #include<Kalman.h>
 #include <BlynkSimpleEsp32_BLE.h>
+#include"myDCMotor.h"
+#include"StackFace.h"
 
 char blynkAuth[] = "bOXpYvGF9jdvCKSCoyoHviOhijrOQQaT";
 
 #define MOTOR_POWER_MAX    255
-float MOTOR_POWER_MIN  =  50;
+#define MOTOR_POWER_MIN    50
 
 //x, y, zの順
 float acc[3];
@@ -23,15 +25,10 @@ long tick = 0;
 //moter
 const int IN1_left = 3;
 const int IN2_left = 5;
-const int IN1_right = 25;
-const int IN2_right = 26;
+const int IN1_right = 26;
+const int IN2_right = 25;
+myDCMotor DCmotor(IN1_left,IN2_left,IN1_right,IN2_right);
 
-const double PWM_Hz = 312500;
-const uint8_t PWM_level = 8;
-const uint8_t PWM_CH1 = 1;
-const uint8_t PWM_CH2 = 2;
-const uint8_t PWM_CH3 = 3;
-const uint8_t PWM_CH4 = 4;
 
 //encoder
 const uint8_t ENC_IN1 = 16;
@@ -39,13 +36,11 @@ const uint8_t ENC_IN2 = 17;
 const uint8_t ENC_IN3 = 35;
 const uint8_t ENC_IN4 = 36;
 
-volatile byte pos1;
 volatile int  enc_count1;
-volatile byte pos2;
-volatile int enc_count2;
+volatile int  enc_count2;
+byte pos1;
+byte pos2;
 
-int count_temp1;
-int count_temp2;
 
 //IMU
 float accX = 0.0F;
@@ -60,47 +55,14 @@ float roll  = 0.0F;
 float yaw   = 0.0F;
 
 //PID
-float KP = 200.0;
+float KP = 50.0;
 float KI = 4.0;
 float KD = 2.0;
 
-float power=0,I=0,preP=0,preTime,Target=0,Dire;
+float power=0,I=0,preP=0,preTime,Target=90,Dire;
 
 bool start = false;
-
-
-//TDT_sSprite sprite(&M5.Lcd);
-
-
-
-void DCmoter(float power){
-  if(power > 0){
-    power += MOTOR_POWER_MIN;
-    if(power > MOTOR_POWER_MAX)power = 255;
-    ledcWrite(PWM_CH1,0);
-    ledcWrite(PWM_CH2,power);
-    ledcWrite(PWM_CH3,0);
-    ledcWrite(PWM_CH4,power);       
-  }else if(power < 0){
-    power *= -1;
-    power += MOTOR_POWER_MIN;
-    if(power > MOTOR_POWER_MAX)power = 255;
-    ledcWrite(PWM_CH1,power);
-    ledcWrite(PWM_CH2,0);
-    ledcWrite(PWM_CH3,power);
-    ledcWrite(PWM_CH4,0);    
-  }else if(power == 0){
-    ledcWrite(PWM_CH1,255);
-    ledcWrite(PWM_CH2,255);
-    ledcWrite(PWM_CH3,255);
-    ledcWrite(PWM_CH4,255);      
-  }else if(power == -1){
-    ledcWrite(PWM_CH1,0);
-    ledcWrite(PWM_CH2,0);
-    ledcWrite(PWM_CH3,0);
-    ledcWrite(PWM_CH4,0);     
-  }
-}
+StackFace face;
 
 BLYNK_WRITE(V0){
   KP = param.asInt();
@@ -114,9 +76,9 @@ BLYNK_WRITE(V2){
   KD = param.asInt();
 }
 
-BLYNK_WRITE(V3){
+/*BLYNK_WRITE(V3){
   MOTOR_POWER_MIN = param.asInt();
-}
+}*/
 
 void calibration(){
   //補正値を求める
@@ -166,28 +128,13 @@ void setup() {
   M5.Lcd.setTextSize(3);
   //IMUキャリブレーション＆設定
   M5.IMU.Init();
-  M5.Lcd.println("Calibrating...");
-  delay(500);  
+  M5.Lcd.println("Calibrating...");  
   calibration();
   readGyro();
   kalmanX.setAngle(getRoll());
-  lastMs = micros();
+  delay(500);
   Serial.begin(9600);
-  
-  //DCモーターPinの設定
-  pinMode(IN1_right,OUTPUT);
-  pinMode(IN2_right,OUTPUT);
-  pinMode(IN1_left,OUTPUT);
-  pinMode(IN2_left,OUTPUT);
-  ledcSetup(PWM_CH1,PWM_Hz,PWM_level);
-  ledcSetup(PWM_CH2,PWM_Hz,PWM_level);
-  ledcSetup(PWM_CH3,PWM_Hz,PWM_level);
-  ledcSetup(PWM_CH4,PWM_Hz,PWM_level);
-  ledcAttachPin(IN1_right,PWM_CH1);
-  ledcAttachPin(IN2_right,PWM_CH2);
-  ledcAttachPin(IN1_left,PWM_CH3);
-  ledcAttachPin(IN2_left,PWM_CH4);  
-  
+
   //ロータリーエンコーダーPinの設定
   pinMode(ENC_IN1, INPUT_PULLUP);
   pinMode(ENC_IN2, INPUT_PULLUP);
@@ -195,10 +142,10 @@ void setup() {
   pinMode(ENC_IN4, INPUT_PULLUP);
   
   //エンコーダーの割込み設定
-  //attachInterrupt(digitalPinToInterrupt(ENC_IN1), ENC_READ1, CHANGE);
-  //attachInterrupt(digitalPinToInterrupt(ENC_IN2), ENC_READ1, CHANGE);
-  //attachInterrupt(digitalPinToInterrupt(ENC_IN3), ENC_READ2, CHANGE);
-  //attachInterrupt(digitalPinToInterrupt(ENC_IN4), ENC_READ2, CHANGE);
+  /*attachInterrupt(digitalPinToInterrupt(ENC_IN1), ENC_READ1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENC_IN2), ENC_READ1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENC_IN3), ENC_READ2, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENC_IN4), ENC_READ2, CHANGE);*/
 
   M5.Lcd.setTextSize(3);
 
@@ -206,7 +153,7 @@ void setup() {
   //Blynk設定
   Blynk.setDeviceName("M5Stack");
   Blynk.begin(blynkAuth);
-  M5.Lcd.clear();
+  face.normalFace();
 }
 
 void loop() {
@@ -214,30 +161,28 @@ void loop() {
   M5.update();
   Blynk.run();
   float pitch,roll,yaw,Duty,P,D,now,dt,Time;
-  m5.Lcd.clear();
+  /*m5.Lcd.clear();
   m5.Lcd.setCursor(10,10);
   m5.Lcd.print(enc_count1);
   m5.Lcd.print(':');
-  m5.Lcd.println(enc_count2);
+  m5.Lcd.println(enc_count2);*/
 
   readGyro();
   applyCalibration();
-  dt = (micros() - lastMs) / 1000000.0;
-  Time=micros();
-  preTime = Time;
-  lastMs = micros();
   roll = getRoll();
   pitch = getPitch();
-  
-  now = Target - roll;
-  m5.Lcd.print("Roll:");
-  m5.Lcd.println(roll);
 
-  if(-1< now && now < 1){
-    power = 0;
-    DCmoter(0);
-  }
-  else if(-30 < now && now < 30 && start){
+  Time=micros();
+  dt = (Time - preTime) / 1000000.0;
+  preTime = Time;
+  kalAngleX  = kalmanX.getAngle(roll,gyro[0],dt);
+  now = Target - kalAngleX;
+  //m5.Lcd.print("roll:");
+  //m5.Lcd.println(kalAngleX);
+  Serial.println(kalAngleX);
+
+
+   if(-30 < now && now < 30 && start){
     P = now/90;
     I += P*dt;
     D = (P - preP)/dt;
@@ -249,11 +194,11 @@ void loop() {
     power = KP * P + KI * I + D * KD;
 
     Duty = (int)(MOTOR_POWER_MAX - MOTOR_POWER_MIN)* power/10; 
-    DCmoter(Duty);
+    DCmotor.Drive(Duty);
   } else {  // +-20度を越えたら倒れたとみなす
     power = 0;
     I = 0;
-    DCmoter(-1);
+    DCmotor.Drive(-1);
   }
 
   if(m5.BtnA.wasPressed()){
@@ -261,14 +206,6 @@ void loop() {
     else start = false;
       
   }
-  /*m5.Lcd.print("Power:");
-  m5.Lcd.println(power);
-  m5.Lcd.print("KP:");
-  m5.Lcd.println(KP);
-  m5.Lcd.print("KD:");
-  m5.Lcd.println(KD);
-  m5.Lcd.print("KI:");
-  m5.Lcd.println(KI);*/ 
 }
 
 void ENC_READ1() {
