@@ -36,7 +36,7 @@ const uint8_t ENC_IN2 = 17;
 const uint8_t ENC_IN3 = 35;
 const uint8_t ENC_IN4 = 36;
 
-volatile int  enc_count1;
+volatile int enc_count1;
 volatile int  enc_count2;
 byte pos1;
 byte pos2;
@@ -142,18 +142,18 @@ void setup() {
   pinMode(ENC_IN4, INPUT_PULLUP);
   
   //エンコーダーの割込み設定
-  /*attachInterrupt(digitalPinToInterrupt(ENC_IN1), ENC_READ1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENC_IN1), ENC_READ1, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENC_IN2), ENC_READ1, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENC_IN3), ENC_READ2, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ENC_IN4), ENC_READ2, CHANGE);*/
+  attachInterrupt(digitalPinToInterrupt(ENC_IN4), ENC_READ2, CHANGE);
 
   M5.Lcd.setTextSize(3);
-
   preTime = micros();
+  
   //Blynk設定
   Blynk.setDeviceName("M5Stack");
   Blynk.begin(blynkAuth);
-  face.normalFace();
+  //face.normalFace();
 }
 
 void loop() {
@@ -161,11 +161,11 @@ void loop() {
   M5.update();
   Blynk.run();
   float pitch,roll,yaw,Duty,P,D,now,dt,Time;
-  /*m5.Lcd.clear();
+  m5.Lcd.clear();
   m5.Lcd.setCursor(10,10);
   m5.Lcd.print(enc_count1);
   m5.Lcd.print(':');
-  m5.Lcd.println(enc_count2);*/
+  m5.Lcd.println(enc_count2);
 
   readGyro();
   applyCalibration();
@@ -179,7 +179,9 @@ void loop() {
   now = Target - kalAngleX;
   //m5.Lcd.print("roll:");
   //m5.Lcd.println(kalAngleX);
-  Serial.println(kalAngleX);
+  m5.Lcd.print("Time");
+  m5.Lcd.println(Time/1000000.0);
+  //Serial.println(kalAngleX);
 
 
    if(-30 < now && now < 30 && start){
@@ -203,8 +205,7 @@ void loop() {
 
   if(m5.BtnA.wasPressed()){
     if(!start)start = true;
-    else start = false;
-      
+    else start = false;  
   }
 }
 
@@ -224,8 +225,8 @@ void ENC_READ1() {
     } else {
       if (cur == 0)
       {
-        if (dir == 1 && old == 3) enc_count1+= 36;
-        else if (dir == 3 && old == 1) enc_count1-=36;
+        if (dir == 1 && old == 3) enc_count1+= 158;
+        else if (dir == 3 && old == 1) enc_count1-=158;
         dir = 0;
       }
     }
@@ -255,8 +256,8 @@ void ENC_READ2() {
     } else {
       if (cur == 0)
       {
-        if (dir == 1 && old == 3) enc_count2+= 36;
-        else if (dir == 3 && old == 1) enc_count2-=36;
+        if (dir == 1 && old == 3) enc_count2+= 158;
+        else if (dir == 3 && old == 1) enc_count2-= 158;
         dir = 0;
       }
     }
