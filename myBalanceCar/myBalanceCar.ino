@@ -55,7 +55,7 @@ float roll  = 0.0F;
 float yaw   = 0.0F;
 
 //PID
-float KP = 50.0;
+float KP = 70.0;
 float KI = 4.0;
 float KD = 2.0;
 
@@ -98,8 +98,8 @@ void calibration(){
   gyroOffset[1] = gyroSum[1]/500;
   gyroOffset[2] = gyroSum[2]/500;
   accOffset[0] = accSum[0]/500;
-  accOffset[1] = accSum[1]/500;
-  accOffset[2] = accSum[2]/500 - 1.0;//重力加速度1G
+  accOffset[1] = accSum[1]/500 - 1.0;//重力加速度1G
+  accOffset[2] = accSum[2]/500;
 }
 
 void readGyro(){
@@ -181,7 +181,7 @@ void loop() {
   //m5.Lcd.println(kalAngleX);
   m5.Lcd.print("Time");
   m5.Lcd.println(Time/1000000.0);
-  //Serial.println(kalAngleX);
+  Serial.println(kalAngleX);
 
 
    if(-30 < now && now < 30 && start){
