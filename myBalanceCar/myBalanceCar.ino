@@ -3,6 +3,7 @@
 #include<M5Stack.h>
 #include<Kalman.h>
 #include <BlynkSimpleEsp32_BLE.h>
+#include"BluetoothSerial.h"
 #include"myDCMotor.h"
 #include"StackFace.h"
 
@@ -23,10 +24,10 @@ long lastMs = 0;
 long tick = 0;
 
 //moter
-const int IN1_left = 3;
-const int IN2_left = 5;
-const int IN1_right = 26;
-const int IN2_right = 25;
+const int IN1_left = 5;
+const int IN2_left = 3;
+const int IN1_right = 25;
+const int IN2_right = 26;
 myDCMotor DCmotor(IN1_left,IN2_left,IN1_right,IN2_right);
 
 
@@ -36,33 +37,22 @@ const uint8_t ENC_IN2 = 17;
 const uint8_t ENC_IN3 = 35;
 const uint8_t ENC_IN4 = 36;
 
-volatile int enc_count1;
-volatile int  enc_count2;
+volatile double enc_count1;
+volatile double  enc_count2;
 byte pos1;
 byte pos2;
 
-
-//IMU
-float accX = 0.0F;
-float accY = 0.0F;
-float accZ = 0.0F;
-
-float gyroX = 0.0F;
-float gyroY = 0.0F;
-float gyroZ = 0.0F;
-float pitch = 0.0F;
-float roll  = 0.0F;
-float yaw   = 0.0F;
-
 //PID
-float KP = 70.0;
-float KI = 4.0;
-float KD = 2.0;
+float KP = 3.50;
+float KI = 2.0;
+float KD = 0.16;
 
-float power=0,I=0,preP=0,preTime,Target=90,Dire;
+float power=0,I=0,preP=0,preTime,Target=180,Dire;
 
 bool start = false;
 StackFace face;
+
+BluetoothSerial bts;
 
 BLYNK_WRITE(V0){
   KP = param.asInt();
@@ -154,6 +144,8 @@ void setup() {
   Blynk.setDeviceName("M5Stack");
   Blynk.begin(blynkAuth);
   //face.normalFace();
+
+  bts.begin("M5Stack");//PC側で確認するときの名前
 }
 
 void loop() {
@@ -177,15 +169,13 @@ void loop() {
   preTime = Time;
   kalAngleX  = kalmanX.getAngle(roll,gyro[0],dt);
   now = Target - kalAngleX;
-  //m5.Lcd.print("roll:");
-  //m5.Lcd.println(kalAngleX);
-  m5.Lcd.print("Time");
-  m5.Lcd.println(Time/1000000.0);
-  Serial.println(kalAngleX);
+  m5.Lcd.print("power:");
+  m5.Lcd.println(power);
+  Serial.print(enc_count1);
 
 
-   if(-30 < now && now < 30 && start){
-    P = now/90;
+    if(/*-30 < now && now < 30 &&*/ start){
+    P = Target - (float)enc_count1;
     I += P*dt;
     D = (P - preP)/dt;
     preP = P;
@@ -193,9 +183,9 @@ void loop() {
     if(100 < abs(I*KI)){
       I = 0;  
     }
-    power = KP * P + KI * I + D * KD;
+    power = KP * P + KI * I + KD * D;
 
-    Duty = (int)(MOTOR_POWER_MAX - MOTOR_POWER_MIN)* power/10; 
+    Duty = 50 + (int)power; 
     DCmotor.Drive(Duty);
   } else {  // +-20度を越えたら倒れたとみなす
     power = 0;
@@ -203,10 +193,13 @@ void loop() {
     DCmotor.Drive(-1);
   }
 
+  Serial.print(",");
+  Serial.println(KD * D);
   if(m5.BtnA.wasPressed()){
     if(!start)start = true;
     else start = false;  
   }
+
 }
 
 void ENC_READ1() {
@@ -225,8 +218,8 @@ void ENC_READ1() {
     } else {
       if (cur == 0)
       {
-        if (dir == 1 && old == 3) enc_count1+= 158;
-        else if (dir == 3 && old == 1) enc_count1-=158;
+        if (dir == 1 && old == 3) enc_count1-= 1.58f;
+        else if (dir == 3 && old == 1) enc_count1+=1.58f;
         dir = 0;
       }
     }
@@ -256,8 +249,8 @@ void ENC_READ2() {
     } else {
       if (cur == 0)
       {
-        if (dir == 1 && old == 3) enc_count2+= 158;
-        else if (dir == 3 && old == 1) enc_count2-= 158;
+        if (dir == 1 && old == 3) enc_count2-= 1.58f;
+        else if (dir == 3 && old == 1) enc_count2+= 1.58f;
         dir = 0;
       }
     }
